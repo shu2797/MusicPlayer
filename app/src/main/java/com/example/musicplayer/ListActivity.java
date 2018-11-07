@@ -10,10 +10,8 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import java.io.File;
-import java.util.ListIterator;
 
 public class ListActivity extends AppCompatActivity {
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,9 +35,10 @@ public class ListActivity extends AppCompatActivity {
                 Intent data = new Intent();
                 data.putExtra("filePath", filePath);
                 setResult(RESULT_OK, data);
-
                 finish();
             }
         });
+
+
+        }
     }
-}
