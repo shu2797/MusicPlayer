@@ -12,11 +12,14 @@ import java.io.File;
 
 public class ListActivity extends AppCompatActivity {
 
+    MP3Player myMP3;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list);
 
+        myMP3 = (MP3Player)getIntent().getExtras().getSerializable("mp3");
 
         final ListView lv = (ListView) findViewById(R.id.listView);
         File musicDir = new File(Environment.getExternalStorageDirectory().getPath()+ "/Music/");

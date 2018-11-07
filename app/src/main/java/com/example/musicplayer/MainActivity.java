@@ -10,9 +10,13 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 
+import java.io.Serializable;
+
 public class MainActivity extends AppCompatActivity {
 
     FloatingActionButton listFAB;
+
+    MP3Player myMP3 = new MP3Player();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Log.d("MusicPlayer", "List view selected");
                 Intent i = new Intent(getBaseContext(), ListActivity.class);
+                i.putExtra("mp3", (Serializable)myMP3);
                 startActivity(i);
             }
         });
