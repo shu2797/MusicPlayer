@@ -97,6 +97,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 ms.stop();
                 //myMP3.stop();
+                fileName.setText("");
 
                 //disable play button
                 playFAB.setEnabled(false);
