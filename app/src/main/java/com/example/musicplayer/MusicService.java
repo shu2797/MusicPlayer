@@ -4,19 +4,19 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
-import android.os.Messenger;
 import android.util.Log;
 
 public class MusicService extends Service {
 
     private final Binder mBind = new mBinder();
 
-    MP3Player myMP3 = new MP3Player();
+    MP3Player myMP3;
 
 
 
     public MusicService() {
-        Log.d("MusicPlayer", "service started");
+        myMP3 = new MP3Player();
+        Log.d("MusicPlayer", myMP3.getState().toString());
     }
 
     @Override
@@ -28,7 +28,7 @@ public class MusicService extends Service {
     @Override
     public boolean onUnbind(Intent intent){
         Log.d("MusicPlayer", "onUnbind");
-        myMP3.stop();
+        //myMP3.stop();
         return false;
     }
 

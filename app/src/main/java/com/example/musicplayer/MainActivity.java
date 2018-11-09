@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.IBinder;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
@@ -15,7 +16,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
-import android.widget.SeekBar;
 import android.widget.TextView;
 
 
@@ -25,11 +25,13 @@ public class MainActivity extends AppCompatActivity {
     ProgressBar progressBar;
     TextView fileName, durationText, progressText;
 
+    Intent myIntent;
 
     private MusicService ms;
     private boolean isBound;
 
     String filePath;
+    String filename;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,11 +53,23 @@ public class MainActivity extends AppCompatActivity {
         Log.d("MusicPlayer", "Storage permission ok");
 
 
+
+
+
         //start service
-        Intent myIntent = new Intent(this, MusicService.class);
-        bindService(myIntent, myConnection,Context.BIND_AUTO_CREATE);
-        startService(myIntent);
-        Log.d("MusicPlayer", "service started");
+//        myIntent = new Intent(this, MusicService.class);
+//        bindService(myIntent, myConnection,Context.BIND_AUTO_CREATE);
+//        startService(myIntent);
+//        Log.d("MusicPlayer", "service started");
+
+
+        try{
+            if (ms.getState() != MP3Player.MP3PlayerState.STOPPED){
+                Log.d("MusicPlayer", "sfa");
+                fileName.setText(filename);
+            }
+        } catch (Exception e){}
+
 
 
         //disable play button because app is started in STOPPED state
@@ -96,8 +110,11 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 ms.stop();
-                //myMP3.stop();
+
+                //reset textviews and progress bar
                 fileName.setText("");
+                durationText.setText("");
+                progressBar.setProgress(0);
 
                 //disable play button
                 playFAB.setEnabled(false);
@@ -107,6 +124,36 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (isBound) {
+            unbindService(myConnection);
+            //service is active
+            //player.stopSelf();
+        }
+    }
+
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if(myIntent==null){
+            Log.d("MusicPlayer", "intent null");
+            myIntent = new Intent(this, MusicService.class);
+            bindService(myIntent, myConnection, Context.BIND_AUTO_CREATE);
+            startService(myIntent);
+        }
+    }
+
+//    @Override
+//    protected void onDestroy() {
+//        stopService(myIntent);
+//        ms=null;
+//        super.onDestroy();
+//    }
+
     private ServiceConnection myConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
@@ -114,6 +161,11 @@ public class MainActivity extends AppCompatActivity {
             ms = binder.getService();
             isBound = true;
             Log.d("MusicPlayer", "isBound = true");
+            if (ms.getState() != MP3Player.MP3PlayerState.STOPPED){
+                Log.d("MusicPlayer", filename);
+                fileName.setText(filename);
+            }
+
         }
 
         @Override
@@ -135,18 +187,10 @@ public class MainActivity extends AppCompatActivity {
 
             ms.load(filePath);
 
-            String filename=filePath.substring(filePath.lastIndexOf("/")+1);
+            //extract file name from full path and set in textview
+            filename=filePath.substring(filePath.lastIndexOf("/")+1);
             fileName.setText(filename);
 
-//            //stop previous file before loading new one
-//            myMP3.stop();
-//
-//            //load file
-//            myMP3.load(filePath);
-//
-//            Log.d("MusicPlayer", Integer.toString(myMP3.getDuration()));
-//            Log.d("MusicPlayer", Integer.toString(myMP3.getProgress()));
-//
             //enable play button
             playFAB.setEnabled(true);
             playFAB.setBackgroundTintList(ColorStateList.valueOf(0xFFD81B60));
@@ -158,11 +202,46 @@ public class MainActivity extends AppCompatActivity {
             progressBar.setMax(dur);
 
             int min = dur/60000;
-            int sec = (dur - (min*60000)) / 1000;
+            int sec = (dur % 60000) / 1000;
+
+            String durationString = String.format("%02d:%02d", min, sec);
+
             //Log.d("MusicPlayer", Integer.toString(min)+":"+Integer.toString(sec));
-            durationText.setText(Integer.toString(min)+":"+Integer.toString(sec));
+            durationText.setText(durationString);
+
+            new mTask().execute(0);
         }
 
     }
 
+    private class mTask extends AsyncTask<Integer, Integer, Void> {
+        @Override
+        protected Void doInBackground(Integer... values) {
+            Log.d("MusicPlayer", "Progress bar AsyncTask started");
+            int progress = ms.getProgress();
+            while (progress !=  ms.getDuration()){
+                progress = ms.getProgress();
+                progressBar.setProgress(progress);
+
+                this.publishProgress(progress);
+            }
+            return null;
+        }
+
+        @Override
+        protected void onProgressUpdate(Integer... values){
+            int progress = values[0];
+
+            int minP = progress/60000;
+            int secP = (progress % 60000) / 1000;
+
+            String progressString = String.format("%02d:%02d", minP, secP);
+            progressText.setText(progressString);
+
+            //if stopped, reset progress textview
+            if (progress == 0){
+                progressText.setText("");
+            }
+        }
+    }
 }
