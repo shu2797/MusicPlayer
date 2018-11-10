@@ -68,4 +68,6 @@ public class MusicService extends Service {
         return myMP3.getDuration();
     }
 
+    protected String getFilePath(){ return myMP3.getFilePath();}
+
 }

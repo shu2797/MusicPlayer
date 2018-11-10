@@ -29,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
     private MusicService ms;
     private boolean isBound;
+    
 
     String filePath;
     String filename;
@@ -127,18 +128,20 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        stopService(myIntent);
+        Log.d("MusicPlayer", "onDestroy");
         super.onDestroy();
-        if (isBound) {
-            unbindService(myConnection);
-            //service is active
-            //player.stopSelf();
-        }
     }
 
+    @Override
+    public void onBackPressed(){
+        moveTaskToBack(true);
+    }
 
     @Override
     protected void onStart() {
         super.onStart();
+        Log.d("MusicPlayer", "onStart");
         if(myIntent==null){
             Log.d("MusicPlayer", "intent null");
             myIntent = new Intent(this, MusicService.class);
@@ -147,12 +150,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-//    @Override
-//    protected void onDestroy() {
-//        stopService(myIntent);
-//        ms=null;
-//        super.onDestroy();
-//    }
+    @Override
+    protected void onResume() {
+        bindService(myIntent, myConnection, Context.BIND_AUTO_CREATE);
+        super.onResume();
+    }
 
     private ServiceConnection myConnection = new ServiceConnection() {
         @Override
@@ -165,7 +167,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("MusicPlayer", filename);
                 fileName.setText(filename);
             }
-
         }
 
         @Override
