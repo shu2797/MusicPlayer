@@ -29,7 +29,7 @@ public class ListActivity extends AppCompatActivity {
                 File selectedFromList =(File) (lv.getItemAtPosition(myItemInt));
                 String filePath = selectedFromList.getAbsolutePath();
                 String filename=filePath.substring(filePath.lastIndexOf("/")+1);
-                Log.d("MusicPlayer", filename);
+                Log.d("MusicPlayer", filePath);
 
                 //send mp3 path to myMP3
                 Intent data = new Intent();

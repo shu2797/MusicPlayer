@@ -1,16 +1,22 @@
 package com.example.musicplayer;
 
 import android.Manifest;
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.UriMatcher;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.IBinder;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -18,10 +24,15 @@ import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import java.io.File;
+import java.net.URI;
+
+import javax.xml.transform.URIResolver;
+
 
 public class MainActivity extends AppCompatActivity {
 
-    FloatingActionButton listFAB, playFAB, stopFAB;
+    FloatingActionButton listFAB, playFAB, stopFAB, shareFAB;
     ProgressBar progressBar;
     TextView fileName, durationText, progressText;
 
@@ -29,7 +40,8 @@ public class MainActivity extends AppCompatActivity {
 
     private MusicService ms;
     private boolean isBound;
-    
+
+    private NotificationManagerCompat notifManager;
 
     String filePath;
     String filename;
@@ -42,6 +54,8 @@ public class MainActivity extends AppCompatActivity {
         listFAB = findViewById(R.id.listFAB);
         playFAB = findViewById(R.id.playFAB);
         stopFAB = findViewById(R.id.stopFAB);
+        shareFAB = findViewById(R.id.shareFAB);
+        shareFAB.hide();
 
         progressBar = findViewById(R.id.progressBar);
 
@@ -54,7 +68,21 @@ public class MainActivity extends AppCompatActivity {
         Log.d("MusicPlayer", "Storage permission ok");
 
 
+//        if (Intent.ACTION_VIEW.equals(getIntent().getAction()))
+//        {
+//            Log.d("MusicPlayer", "open from downloads");
+//
+//
+//            Log.d("MusicPlayer", getIntent().getData().toString());
+//            File f = new File(getIntent().getData().getPath());
+//            String s = f.getPath();
+//            Log.d("MusicPlayer", s);
+//            //ms.load(Uri.(getIntent().getData()));
+//            // do what you want with the file...
+//        }
 
+
+        notifManager = NotificationManagerCompat.from(this);
 
 
         //start service
@@ -95,6 +123,7 @@ public class MainActivity extends AppCompatActivity {
                     playFAB.setImageResource(R.drawable.ic_action_play);
                     //myMP3.pause();
                     ms.pause();
+                    sendNotif();
                 }
 
                 //if in paused state, change button to play
@@ -102,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
                     playFAB.setImageResource(R.drawable.ic_action_pause);
                     //myMP3.play();
                     ms.play();
+                    sendNotif();
                 }
 
             }
@@ -111,6 +141,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 ms.stop();
+
+                notifManager.cancel(1);
+
+                shareFAB.hide();
 
                 //reset textviews and progress bar
                 fileName.setText("");
@@ -123,6 +157,17 @@ public class MainActivity extends AppCompatActivity {
                 playFAB.setImageResource(R.drawable.ic_action_play);
             }
         });
+
+        shareFAB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("audio/*");
+                Log.d("MusicPlayer", filePath);
+                shareIntent.putExtra(Intent.EXTRA_STREAM, Uri.parse(filePath));
+                startActivity(Intent.createChooser(shareIntent, "Share File Using"));
+            }
+        });
     }
 
 
@@ -131,6 +176,7 @@ public class MainActivity extends AppCompatActivity {
         stopService(myIntent);
         Log.d("MusicPlayer", "onDestroy");
         super.onDestroy();
+        notifManager.cancel(1);
     }
 
     @Override
@@ -148,12 +194,6 @@ public class MainActivity extends AppCompatActivity {
             bindService(myIntent, myConnection, Context.BIND_AUTO_CREATE);
             startService(myIntent);
         }
-    }
-
-    @Override
-    protected void onResume() {
-        bindService(myIntent, myConnection, Context.BIND_AUTO_CREATE);
-        super.onResume();
     }
 
     private ServiceConnection myConnection = new ServiceConnection() {
@@ -176,6 +216,28 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+
+
+    public void sendNotif(){
+        Intent intent = getIntent();
+        PendingIntent pendingIntent = PendingIntent.getActivity(getApplicationContext(), (int)System.currentTimeMillis(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+
+        Notification notif = new NotificationCompat.Builder(this, "playback")
+                .setSmallIcon(R.drawable.ic_audio)
+                .setContentTitle(filename)
+                .setContentText(ms.getState().toString())
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .build();
+
+        notifManager.notify(1, notif);
+    }
+
+
+
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -187,6 +249,8 @@ public class MainActivity extends AppCompatActivity {
             ms.stop();
 
             ms.load(filePath);
+
+            shareFAB.show();
 
             //extract file name from full path and set in textview
             filename=filePath.substring(filePath.lastIndexOf("/")+1);
@@ -209,6 +273,8 @@ public class MainActivity extends AppCompatActivity {
 
             //Log.d("MusicPlayer", Integer.toString(min)+":"+Integer.toString(sec));
             durationText.setText(durationString);
+
+            sendNotif();
 
             new mTask().execute(0);
         }

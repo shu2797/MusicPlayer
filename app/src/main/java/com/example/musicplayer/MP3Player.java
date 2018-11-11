@@ -38,12 +38,12 @@ public class MP3Player {
             mediaPlayer.setDataSource(filePath);
             mediaPlayer.prepare();
         } catch (IOException e) {
-            Log.e("MP3Player", e.toString());
+            Log.e("MusicPlayer", e.toString());
             e.printStackTrace();
             this.state = MP3PlayerState.ERROR;
             return;
         } catch (IllegalArgumentException e) {
-            Log.e("MP3Player", e.toString());
+            Log.e("MusicPlayer", e.toString());
             e.printStackTrace();
             this.state = MP3PlayerState.ERROR;
             return;
