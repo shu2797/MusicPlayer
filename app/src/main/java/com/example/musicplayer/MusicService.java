@@ -6,7 +6,9 @@ uses an instance of the MP3Player class.
 package com.example.musicplayer;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
@@ -45,6 +47,10 @@ public class MusicService extends Service {
 
     protected void load(String path){
         myMP3.load(path);
+    }
+
+    protected void load(Context context, Uri uri){
+        myMP3.load(context, uri);
     }
 
     protected void play(){

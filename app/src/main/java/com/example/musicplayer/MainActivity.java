@@ -16,37 +16,50 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.IBinder;
+import android.provider.OpenableColumns;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.TooltipCompat;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 
 
 public class MainActivity extends AppCompatActivity {
 
-    FloatingActionButton listFAB, playFAB, stopFAB, shareFAB;
+    FloatingActionButton listFAB, browseFAB, playFAB, stopFAB, shareFAB;
     SeekBar seekBar;
-    TextView fileName, durationText, progressText;
+    TextView titleText, artistText, albumText, durationText, progressText;
+    ImageView albumArt;
 
     Intent myIntent;
 
     private MusicService ms;
     private boolean isBound;
 
+    MediaMetadataRetriever mmr = new MediaMetadataRetriever(); //to retrieve song details
+
     private NotificationManager notifManager; //notification manager used to send notification
 
     String filePath; //path of selected file
-    String filename; //name of file extracted from path and without extension
+    String mTitle; //name of file extracted from path and without extension
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,15 +68,20 @@ public class MainActivity extends AppCompatActivity {
 
         //Link all UI elements
         listFAB = findViewById(R.id.listFAB);
+        browseFAB = findViewById(R.id.browseFAB);
         playFAB = findViewById(R.id.playFAB);
         stopFAB = findViewById(R.id.stopFAB);
         shareFAB = findViewById(R.id.shareFAB);
 
         seekBar = findViewById(R.id.seekBar);
 
-        fileName = findViewById(R.id.fileName);
+        titleText = findViewById(R.id.titleText);
+        artistText = findViewById(R.id.artistText);
+        albumText = findViewById(R.id.albumText);
         durationText = findViewById(R.id.durationText);
         progressText = findViewById(R.id.progressText);
+
+        albumArt = findViewById(R.id.albumArt);
 
 
         //Request permission from user to read from device storage
@@ -74,6 +92,12 @@ public class MainActivity extends AppCompatActivity {
         seekBar.setEnabled(false);
         playFAB.hide();
         stopFAB.hide();
+
+        //Setting tooltips for all buttons so that user can long-press on buttons to understand what they do
+        TooltipCompat.setTooltipText(listFAB, "Browse from list in Music folder");
+        TooltipCompat.setTooltipText(browseFAB, "Browse from storage");
+        TooltipCompat.setTooltipText(shareFAB, "Share");
+
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             notifManager = getSystemService(NotificationManager.class); //assign notification manager to system
@@ -86,6 +110,16 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("MusicPlayer", "List view selected");
                 Intent i = new Intent(getBaseContext(), ListActivity.class);
                 startActivityForResult(i, 0);
+            }
+        });
+
+        //Browse from storage button
+        browseFAB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent nintent = new Intent(Intent.ACTION_GET_CONTENT);
+                nintent.setType("audio/*");
+                startActivityForResult(nintent, 10);
             }
         });
 
@@ -140,11 +174,12 @@ public class MainActivity extends AppCompatActivity {
 
         notifManager.cancel(1); //clear notification
 
-
-
-        //reset textviews and disable seekbar bar
-        fileName.setText("");
+        //reset UI
+        titleText.setText("");
+        artistText.setText("");
+        albumText.setText("");
         durationText.setText("");
+        albumArt.setImageDrawable(getResources().getDrawable(R.mipmap.ic_album_foreground));
         seekBar.setProgress(0);
         seekBar.setEnabled(false);
 
@@ -213,8 +248,8 @@ public class MainActivity extends AppCompatActivity {
 
         Notification notif = new NotificationCompat.Builder(this, "playback")
                 .setSmallIcon(R.drawable.ic_audio)
-                .setContentTitle(filename)
-                .setContentText(ms.getState().toString())
+                .setContentTitle(mTitle)
+                .setContentText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST))
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
@@ -238,15 +273,58 @@ public class MainActivity extends AppCompatActivity {
 
 
             //extract file name from full path and set in textview
-            filename=filePath.substring(filePath.lastIndexOf("/")+1);
-            filename=filename.substring(0, filename.lastIndexOf("."));
-            fileName.setText(filename);
+            mTitle=filePath.substring(filePath.lastIndexOf("/")+1);
+            mTitle=mTitle.substring(0, mTitle.lastIndexOf("."));
+
+            mmr.setDataSource(filePath);
+
+            //String albumName = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM);
+            //Log.d("MusicPlayer", albumName);
 
             new mTask().execute(0); //execute AsyncTask to start playback and continuously update UI
 
         }
+        if ((requestCode == 10) && (resultCode == RESULT_OK)){
+            stop();
+
+            ms.load(getApplicationContext(), data.getData());
+
+            mmr.setDataSource(getApplicationContext(), data.getData());
+
+            mTitle = getFileName(data.getData());
+            mTitle=mTitle.substring(0, mTitle.lastIndexOf("."));
+
+            Log.d("MusicPlayer", data.getData().toString());
+            Log.d("MusicPlayer", ms.getState().toString());
+            Log.d("MusicPlayer", getFileName(data.getData()));
+            new mTask().execute(0);
+        }
+
 
     }
+
+    public String getFileName(Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
+    }
+
 
     private class mTask extends AsyncTask<Integer, Integer, Void> {
 
@@ -254,6 +332,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPreExecute(){
             Log.d("MusicPlayer", "onPreExecute");
+
+            //start playback
+            ms.play();
 
             //get duration
             int dur = ms.getDuration();
@@ -266,6 +347,27 @@ public class MainActivity extends AppCompatActivity {
             String durationString = String.format("%02d:%02d", min, sec);
             durationText.setText(durationString);
 
+            //display song details
+            String nTitle = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
+            mTitle = (nTitle == null)? mTitle : nTitle;
+            //Log.d("MusicPlayer", mTitle);
+            titleText.setText(mTitle);
+            artistText.setText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
+            albumText.setText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
+
+            //set album art
+            byte[] artBytes =  mmr.getEmbeddedPicture();
+            if(artBytes!=null)
+            {
+                //     InputStream is = new ByteArrayInputStream(mmr.getEmbeddedPicture());
+                Bitmap bm = BitmapFactory.decodeByteArray(artBytes, 0, artBytes.length);
+                albumArt.setImageBitmap(bm);
+            }
+            else
+            {
+                albumArt.setImageDrawable(getResources().getDrawable(R.mipmap.ic_album_foreground));
+            }
+
             //Enable UI buttons and initialise seek bar
             seekBar.setMax(dur);
             seekBar.setEnabled(true);
@@ -275,8 +377,7 @@ public class MainActivity extends AppCompatActivity {
             stopFAB.show();
             shareFAB.show();
 
-            //start playback and send notification
-            ms.play();
+            //send notification
             sendNotif();
         }
 
@@ -294,6 +395,16 @@ public class MainActivity extends AppCompatActivity {
                         ms.seekTo(i);
                     }
                 }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+
+                }
             });
 
 
@@ -307,7 +418,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 Log.d("MPState", ms.getState().toString());
-                Log.d("MPProgress", Integer.toString(ms.getProgress()));
+                Log.d("MPProgress", Integer.toString(ms.getDuration()));
             }
 
             Log.d("MusicPlayer", "Loop exited");

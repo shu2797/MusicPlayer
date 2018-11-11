@@ -1,7 +1,10 @@
 package com.example.musicplayer;
 
+import android.app.Service;
+import android.content.Context;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.util.Log;
 import java.io.IOException;
 
@@ -37,6 +40,31 @@ public class MP3Player {
 
         try{
             mediaPlayer.setDataSource(filePath);
+            mediaPlayer.prepare();
+        } catch (IOException e) {
+            Log.e("MusicPlayer", e.toString());
+            e.printStackTrace();
+            this.state = MP3PlayerState.ERROR;
+            return;
+        } catch (IllegalArgumentException e) {
+            Log.e("MusicPlayer", e.toString());
+            e.printStackTrace();
+            this.state = MP3PlayerState.ERROR;
+            return;
+        }
+
+        this.state = MP3PlayerState.LOADED; //state = LOADED
+        //mediaPlayer.start();
+    }
+
+    public void load(Context context, Uri uri) {
+        //this.uri = uri;
+        Log.d("MusicPlayer", "loading");
+        mediaPlayer = new MediaPlayer();
+        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+
+        try{
+            mediaPlayer.setDataSource(context, uri);
             mediaPlayer.prepare();
         } catch (IOException e) {
             Log.e("MusicPlayer", e.toString());
