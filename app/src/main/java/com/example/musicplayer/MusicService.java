@@ -56,6 +56,8 @@ public class MusicService extends Service {
         myMP3.stop();
     }
 
+    protected void seekTo(int i) { myMP3.seekTo(i);}
+
     protected MP3Player.MP3PlayerState getState(){
         return myMP3.getState();
     }

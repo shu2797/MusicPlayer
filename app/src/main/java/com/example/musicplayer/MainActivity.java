@@ -2,6 +2,8 @@ package com.example.musicplayer;
 
 import android.Manifest;
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -12,6 +14,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.IBinder;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
@@ -22,6 +25,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import java.io.File;
@@ -33,7 +37,7 @@ import javax.xml.transform.URIResolver;
 public class MainActivity extends AppCompatActivity {
 
     FloatingActionButton listFAB, playFAB, stopFAB, shareFAB;
-    ProgressBar progressBar;
+    SeekBar seekBar;
     TextView fileName, durationText, progressText;
 
     Intent myIntent;
@@ -41,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private MusicService ms;
     private boolean isBound;
 
-    private NotificationManagerCompat notifManager;
+    private NotificationManager notifManager;
 
     String filePath;
     String filename;
@@ -57,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
         shareFAB = findViewById(R.id.shareFAB);
         shareFAB.hide();
 
-        progressBar = findViewById(R.id.progressBar);
+        seekBar = findViewById(R.id.seekBar);
 
         fileName = findViewById(R.id.fileName);
         durationText = findViewById(R.id.durationText);
@@ -66,6 +70,8 @@ public class MainActivity extends AppCompatActivity {
         ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},1);
 
         Log.d("MusicPlayer", "Storage permission ok");
+
+        seekBar.setEnabled(false);
 
 
 //        if (Intent.ACTION_VIEW.equals(getIntent().getAction()))
@@ -82,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
 //        }
 
 
-        notifManager = NotificationManagerCompat.from(this);
+        notifManager = getSystemService(NotificationManager.class);
 
 
         //start service
@@ -92,18 +98,14 @@ public class MainActivity extends AppCompatActivity {
 //        Log.d("MusicPlayer", "service started");
 
 
-        try{
-            if (ms.getState() != MP3Player.MP3PlayerState.STOPPED){
-                Log.d("MusicPlayer", "sfa");
-                fileName.setText(filename);
-            }
-        } catch (Exception e){}
-
 
 
         //disable play button because app is started in STOPPED state
-        playFAB.setEnabled(false);
-        playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
+//        playFAB.setEnabled(false);
+//        playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
+
+        playFAB.hide();
+        stopFAB.hide();
 
         listFAB.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -140,21 +142,9 @@ public class MainActivity extends AppCompatActivity {
         stopFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ms.stop();
 
-                notifManager.cancel(1);
+                stop();
 
-                shareFAB.hide();
-
-                //reset textviews and progress bar
-                fileName.setText("");
-                durationText.setText("");
-                progressBar.setProgress(0);
-
-                //disable play button
-                playFAB.setEnabled(false);
-                playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
-                playFAB.setImageResource(R.drawable.ic_action_play);
             }
         });
 
@@ -170,6 +160,28 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    public void stop(){
+        ms.stop();
+
+        notifManager.cancel(1);
+
+        shareFAB.hide();
+
+        //reset textviews and progress bar
+        fileName.setText("");
+        durationText.setText("");
+        seekBar.setProgress(0);
+        seekBar.setEnabled(false);
+
+        //disable play button
+//                playFAB.setEnabled(false);
+//                playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
+        playFAB.hide();
+        playFAB.setImageResource(R.drawable.ic_action_play);
+        stopFAB.hide();
+
+        notifManager.cancel(1);
+    }
 
     @Override
     protected void onDestroy() {
@@ -203,10 +215,10 @@ public class MainActivity extends AppCompatActivity {
             ms = binder.getService();
             isBound = true;
             Log.d("MusicPlayer", "isBound = true");
-            if (ms.getState() != MP3Player.MP3PlayerState.STOPPED){
-                Log.d("MusicPlayer", filename);
-                fileName.setText(filename);
-            }
+//            if (ms.getState() != MP3Player.MP3PlayerState.STOPPED){
+//                Log.d("MusicPlayer", filename);
+//                fileName.setText(filename);
+//            }
         }
 
         @Override
@@ -222,6 +234,11 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = getIntent();
         PendingIntent pendingIntent = PendingIntent.getActivity(getApplicationContext(), (int)System.currentTimeMillis(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
+        //notification support for android SDK 26+
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+            NotificationChannel notificationChannel = new NotificationChannel("playback", "Playback", notifManager.IMPORTANCE_LOW);
+            notifManager.createNotificationChannel(notificationChannel);
+        }
 
         Notification notif = new NotificationCompat.Builder(this, "playback")
                 .setSmallIcon(R.drawable.ic_audio)
@@ -246,68 +263,169 @@ public class MainActivity extends AppCompatActivity {
             //receive path
             filePath = data.getExtras().getString("filePath");
 
-            ms.stop();
+            stop();
 
             ms.load(filePath);
 
-            shareFAB.show();
 
             //extract file name from full path and set in textview
             filename=filePath.substring(filePath.lastIndexOf("/")+1);
+            filename=filename.substring(0, filename.lastIndexOf("."));
             fileName.setText(filename);
 
             //enable play button
-            playFAB.setEnabled(true);
-            playFAB.setBackgroundTintList(ColorStateList.valueOf(0xFFD81B60));
-            playFAB.setImageResource(R.drawable.ic_action_pause);
+//            playFAB.setEnabled(true);
+//            playFAB.setBackgroundTintList(ColorStateList.valueOf(0xFFD81B60));
+//            playFAB.show();
+//            playFAB.setImageResource(R.drawable.ic_action_pause);
+//            stopFAB.show();
 
-
-            int dur = ms.getDuration();
-            Log.d("MusicPlayer", "Duration: " + dur);
-            progressBar.setMax(dur);
-
-            int min = dur/60000;
-            int sec = (dur % 60000) / 1000;
-
-            String durationString = String.format("%02d:%02d", min, sec);
 
             //Log.d("MusicPlayer", Integer.toString(min)+":"+Integer.toString(sec));
-            durationText.setText(durationString);
+            //durationText.setText(durationString);
 
-            sendNotif();
+            //sendNotif();
 
             new mTask().execute(0);
+
         }
 
     }
 
     private class mTask extends AsyncTask<Integer, Integer, Void> {
+
+        boolean complete = false;
+
+        @Override
+        protected void onPreExecute(){
+            Log.d("MusicPlayer", "onPreExecute");
+            ms.play();
+            int dur = ms.getDuration();
+            int min = dur/60000;
+            int sec = (dur % 60000) / 1000;
+
+            Log.d("MusicPlayer", "Duration: " + dur);
+
+            String durationString = String.format("%02d:%02d", min, sec);
+            durationText.setText(durationString);
+
+            shareFAB.show();
+
+            seekBar.setMax(dur);
+            seekBar.setEnabled(true);
+
+            playFAB.show();
+            playFAB.setImageResource(R.drawable.ic_action_pause);
+            stopFAB.show();
+            //sendNotif();
+        }
+
+
         @Override
         protected Void doInBackground(Integer... values) {
             Log.d("MusicPlayer", "Progress bar AsyncTask started");
-            int progress = ms.getProgress();
-            while (progress !=  ms.getDuration()){
-                progress = ms.getProgress();
-                progressBar.setProgress(progress);
 
-                this.publishProgress(progress);
+            seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                    if((ms.getState()!=MP3Player.MP3PlayerState.STOPPED)&&(b)){
+                        ms.seekTo(i);
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+
+                }
+            });
+
+            sendNotif();
+
+            while (ms.getProgress()/100 !=  ms.getDuration()/100){
+            //while (ms.getState()!=MP3Player.MP3PlayerState.STOPPED){
+                this.publishProgress(ms.getProgress());
+                if(ms.getState() == MP3Player.MP3PlayerState.STOPPED){
+                    break;
+                }
+                Log.d("MPState", ms.getState().toString());
+                Log.d("MPProgress", Integer.toString(ms.getProgress()));
             }
+            //ms.stop();
+
+            Log.d("MusicPlayer", "background done");
+
+
             return null;
         }
+
+
+//        @Override
+//        protected void onPostExecute(Void result){
+//
+//            Log.d("MusicPlayer", "onPostExecute");
+//
+//            stop();
+////            //reset textviews and progress bar
+////            fileName.setText("");
+////            seekBar.setProgress(0);
+////            seekBar.setEnabled(false);
+////
+//            progressText.setText("");
+////            durationText.setText("");
+////
+////            //disable play button
+//////            playFAB.setEnabled(false);
+//////            playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
+////            playFAB.hide();
+////            playFAB.setImageResource(R.drawable.ic_action_play);
+////            shareFAB.hide();
+////            stopFAB.hide();
+//        }
+
+
 
         @Override
         protected void onProgressUpdate(Integer... values){
             int progress = values[0];
 
-            int minP = progress/60000;
-            int secP = (progress % 60000) / 1000;
 
-            String progressString = String.format("%02d:%02d", minP, secP);
-            progressText.setText(progressString);
 
             //if stopped, reset progress textview
-            if (progress == 0){
+            if ((ms.getState() == MP3Player.MP3PlayerState.STOPPED) || (ms.getProgress()/100 == ms.getDuration()/100)){
+                //progressText.setText("");
+
+                Log.d("MusicPlayer", "end");
+//                //reset textviews and progress bar
+//                fileName.setText("");
+//                seekBar.setProgress(0);
+//                seekBar.setEnabled(false);
+//
                 progressText.setText("");
+//                durationText.setText("");
+//
+//                //disable play button
+////            playFAB.setEnabled(false);
+////            playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
+//                playFAB.hide();
+//                playFAB.setImageResource(R.drawable.ic_action_play);
+//                shareFAB.hide();
+//                stopFAB.hide();
+
+
+                stop();
+            } else {
+                seekBar.setProgress(progress);
+
+                int minP = progress/60000;
+                int secP = (progress % 60000) / 1000;
+
+                String progressString = String.format("%02d:%02d", minP, secP);
+                progressText.setText(progressString);
             }
         }
     }

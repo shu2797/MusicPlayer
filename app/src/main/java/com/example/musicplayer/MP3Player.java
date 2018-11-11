@@ -18,7 +18,8 @@ public class MP3Player {
         ERROR,
         PLAYING,
         PAUSED,
-        STOPPED
+        STOPPED,
+        LOADED
     }
 
     public MP3Player() {
@@ -49,8 +50,8 @@ public class MP3Player {
             return;
         }
 
-        this.state = MP3PlayerState.PLAYING;
-        mediaPlayer.start();
+        this.state = MP3PlayerState.LOADED;
+        //mediaPlayer.start();
     }
 
     public String getFilePath() {
@@ -73,7 +74,7 @@ public class MP3Player {
     }
 
     public void play() {
-        if(this.state == MP3PlayerState.PAUSED) {
+        if((this.state == MP3PlayerState.PAUSED) || (this.state == MP3PlayerState.LOADED)) {
             mediaPlayer.start();
             this.state = MP3PlayerState.PLAYING;
         }
@@ -95,5 +96,9 @@ public class MP3Player {
             mediaPlayer.release();
             mediaPlayer = null;
         }
+    }
+
+    public void seekTo(int i){
+        mediaPlayer.seekTo(i);
     }
 }
