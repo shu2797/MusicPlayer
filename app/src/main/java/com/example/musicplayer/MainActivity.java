@@ -1,3 +1,10 @@
+/*Main Activity contains initial music player UI with play/pause buttons, stop button, list and share button.
+Notifications, seekbar, and other UI control and updates are done from here.
+ */
+
+
+
+
 package com.example.musicplayer;
 
 import android.Manifest;
@@ -9,9 +16,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.UriMatcher;
-import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -19,19 +23,13 @@ import android.os.IBinder;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
-import java.io.File;
-import java.net.URI;
-
-import javax.xml.transform.URIResolver;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -45,21 +43,21 @@ public class MainActivity extends AppCompatActivity {
     private MusicService ms;
     private boolean isBound;
 
-    private NotificationManager notifManager;
+    private NotificationManager notifManager; //notification manager used to send notification
 
-    String filePath;
-    String filename;
+    String filePath; //path of selected file
+    String filename; //name of file extracted from path and without extension
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //Link all UI elements
         listFAB = findViewById(R.id.listFAB);
         playFAB = findViewById(R.id.playFAB);
         stopFAB = findViewById(R.id.stopFAB);
         shareFAB = findViewById(R.id.shareFAB);
-        shareFAB.hide();
 
         seekBar = findViewById(R.id.seekBar);
 
@@ -67,46 +65,21 @@ public class MainActivity extends AppCompatActivity {
         durationText = findViewById(R.id.durationText);
         progressText = findViewById(R.id.progressText);
 
+
+        //Request permission from user to read from device storage
         ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},1);
 
-        Log.d("MusicPlayer", "Storage permission ok");
-
+        //Initial UI configuration: hide buttons since Player starts in STOPPED mode
+        shareFAB.hide();
         seekBar.setEnabled(false);
-
-
-//        if (Intent.ACTION_VIEW.equals(getIntent().getAction()))
-//        {
-//            Log.d("MusicPlayer", "open from downloads");
-//
-//
-//            Log.d("MusicPlayer", getIntent().getData().toString());
-//            File f = new File(getIntent().getData().getPath());
-//            String s = f.getPath();
-//            Log.d("MusicPlayer", s);
-//            //ms.load(Uri.(getIntent().getData()));
-//            // do what you want with the file...
-//        }
-
-
-        notifManager = getSystemService(NotificationManager.class);
-
-
-        //start service
-//        myIntent = new Intent(this, MusicService.class);
-//        bindService(myIntent, myConnection,Context.BIND_AUTO_CREATE);
-//        startService(myIntent);
-//        Log.d("MusicPlayer", "service started");
-
-
-
-
-        //disable play button because app is started in STOPPED state
-//        playFAB.setEnabled(false);
-//        playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
-
         playFAB.hide();
         stopFAB.hide();
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            notifManager = getSystemService(NotificationManager.class); //assign notification manager to system
+        }
+
+        //List view button
         listFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -116,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        //Play/Pause button
         playFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -125,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
                     playFAB.setImageResource(R.drawable.ic_action_play);
                     //myMP3.pause();
                     ms.pause();
-                    sendNotif();
+                    sendNotif(); //update notification
                 }
 
                 //if in paused state, change button to play
@@ -133,21 +107,21 @@ public class MainActivity extends AppCompatActivity {
                     playFAB.setImageResource(R.drawable.ic_action_pause);
                     //myMP3.play();
                     ms.play();
-                    sendNotif();
+                    sendNotif(); //update notification
                 }
 
             }
         });
 
+        //Stop button
         stopFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
-                stop();
-
+                stop(); //public function created so it can be accessed from ASyncTask as well
             }
         });
 
+        //Share button
         shareFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -160,65 +134,63 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    //Stopping function to stop playback and update UI
     public void stop(){
         ms.stop();
 
-        notifManager.cancel(1);
+        notifManager.cancel(1); //clear notification
 
-        shareFAB.hide();
 
-        //reset textviews and progress bar
+
+        //reset textviews and disable seekbar bar
         fileName.setText("");
         durationText.setText("");
         seekBar.setProgress(0);
         seekBar.setEnabled(false);
 
-        //disable play button
-//                playFAB.setEnabled(false);
-//                playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
+        //Hide UI buttons
         playFAB.hide();
         playFAB.setImageResource(R.drawable.ic_action_play);
         stopFAB.hide();
-
-        notifManager.cancel(1);
+        shareFAB.hide();
     }
 
     @Override
     protected void onDestroy() {
-        stopService(myIntent);
+        stopService(myIntent); //stop service before destroying activity
         Log.d("MusicPlayer", "onDestroy");
         super.onDestroy();
-        notifManager.cancel(1);
+        notifManager.cancel(1); //clear notification before destroying activity
     }
 
     @Override
     public void onBackPressed(){
-        moveTaskToBack(true);
+        moveTaskToBack(true); //disable activity from being destroyed when app is minimised
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        Log.d("MusicPlayer", "onStart");
+
+        //Start music service
+        Log.d("MusicPlayer", "Starting service");
         if(myIntent==null){
             Log.d("MusicPlayer", "intent null");
             myIntent = new Intent(this, MusicService.class);
             bindService(myIntent, myConnection, Context.BIND_AUTO_CREATE);
             startService(myIntent);
+            Log.d("MusicPlayer", "Service started");
         }
     }
 
     private ServiceConnection myConnection = new ServiceConnection() {
+        //Bind Service
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
             MusicService.mBinder binder = (MusicService.mBinder) service;
             ms = binder.getService();
             isBound = true;
             Log.d("MusicPlayer", "isBound = true");
-//            if (ms.getState() != MP3Player.MP3PlayerState.STOPPED){
-//                Log.d("MusicPlayer", filename);
-//                fileName.setText(filename);
-//            }
         }
 
         @Override
@@ -228,13 +200,12 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-
-
+    //function to send notification
     public void sendNotif(){
         Intent intent = getIntent();
         PendingIntent pendingIntent = PendingIntent.getActivity(getApplicationContext(), (int)System.currentTimeMillis(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-        //notification support for android SDK 26+
+        //notification channel created to support android SDK 26+
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
             NotificationChannel notificationChannel = new NotificationChannel("playback", "Playback", notifManager.IMPORTANCE_LOW);
             notifManager.createNotificationChannel(notificationChannel);
@@ -249,23 +220,21 @@ public class MainActivity extends AppCompatActivity {
                 .setOngoing(true)
                 .build();
 
-        notifManager.notify(1, notif);
+        notifManager.notify(1, notif); //send notification
     }
-
-
-
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        //After selecting music file
         if ((requestCode == 0) && (resultCode == RESULT_OK)){
-            //receive path
+            //receive file path
             filePath = data.getExtras().getString("filePath");
 
-            stop();
+            stop(); //stop current playback before loading new file
 
-            ms.load(filePath);
+            ms.load(filePath); //load file
 
 
             //extract file name from full path and set in textview
@@ -273,20 +242,7 @@ public class MainActivity extends AppCompatActivity {
             filename=filename.substring(0, filename.lastIndexOf("."));
             fileName.setText(filename);
 
-            //enable play button
-//            playFAB.setEnabled(true);
-//            playFAB.setBackgroundTintList(ColorStateList.valueOf(0xFFD81B60));
-//            playFAB.show();
-//            playFAB.setImageResource(R.drawable.ic_action_pause);
-//            stopFAB.show();
-
-
-            //Log.d("MusicPlayer", Integer.toString(min)+":"+Integer.toString(sec));
-            //durationText.setText(durationString);
-
-            //sendNotif();
-
-            new mTask().execute(0);
+            new mTask().execute(0); //execute AsyncTask to start playback and continuously update UI
 
         }
 
@@ -294,136 +250,90 @@ public class MainActivity extends AppCompatActivity {
 
     private class mTask extends AsyncTask<Integer, Integer, Void> {
 
-        boolean complete = false;
-
+        //Update UI before starting playback
         @Override
         protected void onPreExecute(){
             Log.d("MusicPlayer", "onPreExecute");
-            ms.play();
+
+            //get duration
             int dur = ms.getDuration();
             int min = dur/60000;
             int sec = (dur % 60000) / 1000;
 
             Log.d("MusicPlayer", "Duration: " + dur);
 
+            //format duration into MM:SS for  UI
             String durationString = String.format("%02d:%02d", min, sec);
             durationText.setText(durationString);
 
-            shareFAB.show();
-
+            //Enable UI buttons and initialise seek bar
             seekBar.setMax(dur);
             seekBar.setEnabled(true);
 
             playFAB.show();
             playFAB.setImageResource(R.drawable.ic_action_pause);
             stopFAB.show();
-            //sendNotif();
+            shareFAB.show();
+
+            //start playback and send notification
+            ms.play();
+            sendNotif();
         }
 
 
         @Override
         protected Void doInBackground(Integer... values) {
-            Log.d("MusicPlayer", "Progress bar AsyncTask started");
+            Log.d("MusicPlayer", "Seek bar AsyncTask started");
 
+            //seek bar listener
             seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                    //When user wants to change position at which music is being played
                     if((ms.getState()!=MP3Player.MP3PlayerState.STOPPED)&&(b)){
                         ms.seekTo(i);
                     }
                 }
-
-                @Override
-                public void onStartTrackingTouch(SeekBar seekBar) {
-
-                }
-
-                @Override
-                public void onStopTrackingTouch(SeekBar seekBar) {
-
-                }
             });
 
-            sendNotif();
 
-            while (ms.getProgress()/100 !=  ms.getDuration()/100){
-            //while (ms.getState()!=MP3Player.MP3PlayerState.STOPPED){
+            //Loop until music playback is completed
+            while (ms.getProgress()/100 !=  ms.getDuration()/100){ //Needed to divide by 100 for system to be able to catch a point where progress = duration
                 this.publishProgress(ms.getProgress());
+
+                //if stop button is pressed, break from loop
                 if(ms.getState() == MP3Player.MP3PlayerState.STOPPED){
                     break;
                 }
+
                 Log.d("MPState", ms.getState().toString());
                 Log.d("MPProgress", Integer.toString(ms.getProgress()));
             }
-            //ms.stop();
 
-            Log.d("MusicPlayer", "background done");
-
+            Log.d("MusicPlayer", "Loop exited");
 
             return null;
         }
 
-
-//        @Override
-//        protected void onPostExecute(Void result){
-//
-//            Log.d("MusicPlayer", "onPostExecute");
-//
-//            stop();
-////            //reset textviews and progress bar
-////            fileName.setText("");
-////            seekBar.setProgress(0);
-////            seekBar.setEnabled(false);
-////
-//            progressText.setText("");
-////            durationText.setText("");
-////
-////            //disable play button
-//////            playFAB.setEnabled(false);
-//////            playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
-////            playFAB.hide();
-////            playFAB.setImageResource(R.drawable.ic_action_play);
-////            shareFAB.hide();
-////            stopFAB.hide();
-//        }
-
-
-
+        //when progress of playback is changed
         @Override
         protected void onProgressUpdate(Integer... values){
             int progress = values[0];
 
-
-
-            //if stopped, reset progress textview
+            //if stopped or music playback is complete
             if ((ms.getState() == MP3Player.MP3PlayerState.STOPPED) || (ms.getProgress()/100 == ms.getDuration()/100)){
-                //progressText.setText("");
 
-                Log.d("MusicPlayer", "end");
-//                //reset textviews and progress bar
-//                fileName.setText("");
-//                seekBar.setProgress(0);
-//                seekBar.setEnabled(false);
-//
+                Log.d("MusicPlayer", "Reset UI");
+
+                //reset progress textview and call stop() function to reset UI
                 progressText.setText("");
-//                durationText.setText("");
-//
-//                //disable play button
-////            playFAB.setEnabled(false);
-////            playFAB.setBackgroundTintList(ColorStateList.valueOf(Color.DKGRAY));
-//                playFAB.hide();
-//                playFAB.setImageResource(R.drawable.ic_action_play);
-//                shareFAB.hide();
-//                stopFAB.hide();
-
-
                 stop();
-            } else {
-                seekBar.setProgress(progress);
+            } else { //if still playing
+                seekBar.setProgress(progress); //update progress of seek bar
 
+                //format progress into MM:SS for  UI and update
                 int minP = progress/60000;
                 int secP = (progress % 60000) / 1000;
-
                 String progressString = String.format("%02d:%02d", minP, secP);
                 progressText.setText(progressString);
             }

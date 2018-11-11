@@ -19,7 +19,7 @@ public class MP3Player {
         PLAYING,
         PAUSED,
         STOPPED,
-        LOADED
+        LOADED //added to avoid malfunctioning of playback service
     }
 
     public MP3Player() {
@@ -50,7 +50,7 @@ public class MP3Player {
             return;
         }
 
-        this.state = MP3PlayerState.LOADED;
+        this.state = MP3PlayerState.LOADED; //state = LOADED
         //mediaPlayer.start();
     }
 
@@ -98,6 +98,7 @@ public class MP3Player {
         }
     }
 
+    //added seek functionality
     public void seekTo(int i){
         mediaPlayer.seekTo(i);
     }

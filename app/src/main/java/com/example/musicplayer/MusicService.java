@@ -1,3 +1,8 @@
+/*This is the music service which is controlled by the Main Activity and
+uses an instance of the MP3Player class.
+ */
+
+
 package com.example.musicplayer;
 
 import android.app.Service;
@@ -15,8 +20,7 @@ public class MusicService extends Service {
 
 
     public MusicService() {
-        myMP3 = new MP3Player();
-        Log.d("MusicPlayer", myMP3.getState().toString());
+        myMP3 = new MP3Player(); //initialization
     }
 
     @Override
@@ -28,7 +32,6 @@ public class MusicService extends Service {
     @Override
     public boolean onUnbind(Intent intent){
         Log.d("MusicPlayer", "onUnbind");
-        //myMP3.stop();
         return false;
     }
 
@@ -38,7 +41,7 @@ public class MusicService extends Service {
         }
     }
 
-
+    //Functions for Music Player Service
 
     protected void load(String path){
         myMP3.load(path);
@@ -69,7 +72,5 @@ public class MusicService extends Service {
     protected int getDuration(){
         return myMP3.getDuration();
     }
-
-    protected String getFilePath(){ return myMP3.getFilePath();}
 
 }

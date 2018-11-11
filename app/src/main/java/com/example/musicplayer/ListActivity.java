@@ -19,7 +19,7 @@ public class ListActivity extends AppCompatActivity {
         setContentView(R.layout.activity_list);
 
 
-        final ListView lv = (ListView) findViewById(R.id.listView);
+        final ListView lv = findViewById(R.id.listView);
         File musicDir = new File(Environment.getExternalStorageDirectory().getPath()+ "/Music/");
         File list[] = musicDir.listFiles();
 
@@ -28,10 +28,9 @@ public class ListActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> myAdapter, View myView, int myItemInt, long mylng) {
                 File selectedFromList =(File) (lv.getItemAtPosition(myItemInt));
                 String filePath = selectedFromList.getAbsolutePath();
-                String filename=filePath.substring(filePath.lastIndexOf("/")+1);
                 Log.d("MusicPlayer", filePath);
 
-                //send mp3 path to myMP3
+                //send mp3 path to Main Activity to be loaded
                 Intent data = new Intent();
                 data.putExtra("filePath", filePath);
                 setResult(RESULT_OK, data);
