@@ -166,6 +166,7 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(Intent.createChooser(shareIntent, "Share File Using"));
             }
         });
+        Log.d("MusicPlayer", "onCreate");
     }
 
     //Stopping function to stop playback and update UI
@@ -258,6 +259,52 @@ public class MainActivity extends AppCompatActivity {
         notifManager.notify(1, notif); //send notification
     }
 
+    public void renderUI(){
+        //get duration
+        int dur = ms.getDuration();
+        int min = dur/60000;
+        int sec = (dur % 60000) / 1000;
+
+        Log.d("MusicPlayer", "Duration: " + dur);
+
+        //format duration into MM:SS for  UI
+        String durationString = String.format("%02d:%02d", min, sec);
+        durationText.setText(durationString);
+
+        //display song details
+        String nTitle = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
+        mTitle = (nTitle == null)? mTitle : nTitle;
+        //Log.d("MusicPlayer", mTitle);
+        titleText.setText(mTitle);
+        artistText.setText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
+        albumText.setText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
+
+        //set album art
+        byte[] artBytes =  mmr.getEmbeddedPicture();
+        if(artBytes!=null)
+        {
+            //     InputStream is = new ByteArrayInputStream(mmr.getEmbeddedPicture());
+            Bitmap bm = BitmapFactory.decodeByteArray(artBytes, 0, artBytes.length);
+            albumArt.setImageBitmap(bm);
+        }
+        else
+        {
+            albumArt.setImageDrawable(getResources().getDrawable(R.mipmap.ic_album_foreground));
+        }
+
+        //Enable UI buttons and initialise seek bar
+        seekBar.setMax(dur);
+        seekBar.setEnabled(true);
+
+        playFAB.show();
+        playFAB.setImageResource(R.drawable.ic_action_pause);
+        stopFAB.show();
+        shareFAB.show();
+
+        //send notification
+        sendNotif();
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -303,6 +350,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    //function to extract file name from URI
     public String getFileName(Uri uri) {
         String result = null;
         if (uri.getScheme().equals("content")) {
@@ -336,49 +384,7 @@ public class MainActivity extends AppCompatActivity {
             //start playback
             ms.play();
 
-            //get duration
-            int dur = ms.getDuration();
-            int min = dur/60000;
-            int sec = (dur % 60000) / 1000;
-
-            Log.d("MusicPlayer", "Duration: " + dur);
-
-            //format duration into MM:SS for  UI
-            String durationString = String.format("%02d:%02d", min, sec);
-            durationText.setText(durationString);
-
-            //display song details
-            String nTitle = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
-            mTitle = (nTitle == null)? mTitle : nTitle;
-            //Log.d("MusicPlayer", mTitle);
-            titleText.setText(mTitle);
-            artistText.setText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
-            albumText.setText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
-
-            //set album art
-            byte[] artBytes =  mmr.getEmbeddedPicture();
-            if(artBytes!=null)
-            {
-                //     InputStream is = new ByteArrayInputStream(mmr.getEmbeddedPicture());
-                Bitmap bm = BitmapFactory.decodeByteArray(artBytes, 0, artBytes.length);
-                albumArt.setImageBitmap(bm);
-            }
-            else
-            {
-                albumArt.setImageDrawable(getResources().getDrawable(R.mipmap.ic_album_foreground));
-            }
-
-            //Enable UI buttons and initialise seek bar
-            seekBar.setMax(dur);
-            seekBar.setEnabled(true);
-
-            playFAB.show();
-            playFAB.setImageResource(R.drawable.ic_action_pause);
-            stopFAB.show();
-            shareFAB.show();
-
-            //send notification
-            sendNotif();
+            renderUI(); //display music details
         }
 
 
