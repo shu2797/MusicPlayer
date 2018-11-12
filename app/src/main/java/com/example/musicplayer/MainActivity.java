@@ -51,8 +51,12 @@ public class MainActivity extends AppCompatActivity {
 
     Intent myIntent;
 
+    Uri shareURI; //URI used for sharing file
+
     private MusicService ms;
     private boolean isBound;
+
+    private final static String TAG = "MusicPlayer";
 
     MediaMetadataRetriever mmr = new MediaMetadataRetriever(); //to retrieve song details
 
@@ -92,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
         seekBar.setEnabled(false);
         playFAB.hide();
         stopFAB.hide();
+        titleText.setText("Please select a file");
 
         //Setting tooltips for all buttons so that user can long-press on buttons to understand what they do
         TooltipCompat.setTooltipText(listFAB, "Browse from list in Music folder");
@@ -107,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
         listFAB.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Log.d("MusicPlayer", "List view selected");
+                Log.d(TAG, "List view selected");
                 Intent i = new Intent(getBaseContext(), ListActivity.class);
                 startActivityForResult(i, 0);
             }
@@ -161,12 +166,12 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Intent shareIntent = new Intent(Intent.ACTION_SEND);
                 shareIntent.setType("audio/*");
-                Log.d("MusicPlayer", filePath);
-                shareIntent.putExtra(Intent.EXTRA_STREAM, Uri.parse(filePath));
+                Log.d(TAG, "Sharing");
+                shareIntent.putExtra(Intent.EXTRA_STREAM, shareURI);
                 startActivity(Intent.createChooser(shareIntent, "Share File Using"));
             }
         });
-        Log.d("MusicPlayer", "onCreate");
+        Log.d(TAG, "onCreate");
     }
 
     //Stopping function to stop playback and update UI
@@ -176,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
         notifManager.cancel(1); //clear notification
 
         //reset UI
-        titleText.setText("");
+        titleText.setText("Please select a file");
         artistText.setText("");
         albumText.setText("");
         durationText.setText("");
@@ -189,52 +194,9 @@ public class MainActivity extends AppCompatActivity {
         playFAB.setImageResource(R.drawable.ic_action_play);
         stopFAB.hide();
         shareFAB.hide();
+
+        Log.d(TAG, "Stopped");
     }
-
-    @Override
-    protected void onDestroy() {
-        stopService(myIntent); //stop service before destroying activity
-        Log.d("MusicPlayer", "onDestroy");
-        super.onDestroy();
-        notifManager.cancel(1); //clear notification before destroying activity
-    }
-
-    @Override
-    public void onBackPressed(){
-        moveTaskToBack(true); //disable activity from being destroyed when app is minimised
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-
-        //Start music service
-        Log.d("MusicPlayer", "Starting service");
-        if(myIntent==null){
-            Log.d("MusicPlayer", "intent null");
-            myIntent = new Intent(this, MusicService.class);
-            bindService(myIntent, myConnection, Context.BIND_AUTO_CREATE);
-            startService(myIntent);
-            Log.d("MusicPlayer", "Service started");
-        }
-    }
-
-    private ServiceConnection myConnection = new ServiceConnection() {
-        //Bind Service
-        @Override
-        public void onServiceConnected(ComponentName componentName, IBinder service) {
-            MusicService.mBinder binder = (MusicService.mBinder) service;
-            ms = binder.getService();
-            isBound = true;
-            Log.d("MusicPlayer", "isBound = true");
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName componentName) {
-            isBound = false;
-            Log.d("MusicPlayer", "isBound = false");
-        }
-    };
 
     //function to send notification
     public void sendNotif(){
@@ -257,6 +219,8 @@ public class MainActivity extends AppCompatActivity {
                 .build();
 
         notifManager.notify(1, notif); //send notification
+
+        Log.d(TAG, "Send notification");
     }
 
     public void renderUI(){
@@ -265,7 +229,6 @@ public class MainActivity extends AppCompatActivity {
         int min = dur/60000;
         int sec = (dur % 60000) / 1000;
 
-        Log.d("MusicPlayer", "Duration: " + dur);
 
         //format duration into MM:SS for  UI
         String durationString = String.format("%02d:%02d", min, sec);
@@ -273,8 +236,7 @@ public class MainActivity extends AppCompatActivity {
 
         //display song details
         String nTitle = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
-        mTitle = (nTitle == null)? mTitle : nTitle;
-        //Log.d("MusicPlayer", mTitle);
+        mTitle = (nTitle == null)? mTitle : nTitle; //if file contains no title, use file name
         titleText.setText(mTitle);
         artistText.setText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
         albumText.setText(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
@@ -295,21 +257,68 @@ public class MainActivity extends AppCompatActivity {
         //Enable UI buttons and initialise seek bar
         seekBar.setMax(dur);
         seekBar.setEnabled(true);
-
         playFAB.show();
         playFAB.setImageResource(R.drawable.ic_action_pause);
         stopFAB.show();
         shareFAB.show();
+
+        Log.d(TAG, "Playing: " + mTitle);
+        Log.d(TAG, "Duration: " + dur);
+        Log.d(TAG, "UI loaded");
 
         //send notification
         sendNotif();
     }
 
     @Override
+    protected void onDestroy() {
+        stopService(myIntent); //stop service before destroying activity
+        Log.d(TAG, "onDestroy");
+        super.onDestroy();
+        notifManager.cancel(1); //clear notification before destroying activity
+    }
+
+    @Override
+    public void onBackPressed(){
+        moveTaskToBack(true); //disable activity from being destroyed when app is minimised
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        //Start music service
+        Log.d(TAG, "Starting service");
+        if(myIntent==null){
+            myIntent = new Intent(this, MusicService.class);
+            bindService(myIntent, myConnection, Context.BIND_AUTO_CREATE);
+            startService(myIntent);
+            Log.d(TAG, "Service started");
+        }
+    }
+
+    private ServiceConnection myConnection = new ServiceConnection() {
+        //Bind Service
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder service) {
+            MusicService.mBinder binder = (MusicService.mBinder) service;
+            ms = binder.getService();
+            isBound = true;
+            Log.d(TAG, "isBound = true");
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            isBound = false;
+            Log.d(TAG, "isBound = false");
+        }
+    };
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        //After selecting music file
+        //After selecting music file from list
         if ((requestCode == 0) && (resultCode == RESULT_OK)){
             //receive file path
             filePath = data.getExtras().getString("filePath");
@@ -323,28 +332,31 @@ public class MainActivity extends AppCompatActivity {
             mTitle=filePath.substring(filePath.lastIndexOf("/")+1);
             mTitle=mTitle.substring(0, mTitle.lastIndexOf("."));
 
-            mmr.setDataSource(filePath);
+            mmr.setDataSource(filePath); //set source for MediaMetadataRetriever
 
-            //String albumName = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM);
-            //Log.d("MusicPlayer", albumName);
+            //URI used for sharing file
+            shareURI = Uri.parse(filePath);
 
             new mTask().execute(0); //execute AsyncTask to start playback and continuously update UI
 
         }
+
+        //After selecting music file after browsing folder
         if ((requestCode == 10) && (resultCode == RESULT_OK)){
             stop();
 
             ms.load(getApplicationContext(), data.getData());
 
-            mmr.setDataSource(getApplicationContext(), data.getData());
+            mmr.setDataSource(getApplicationContext(), data.getData()); //set source for MediaMetadataRetriever
 
+            //URI used for sharing file
+            shareURI = data.getData();
+
+            //get file name from URI
             mTitle = getFileName(data.getData());
             mTitle=mTitle.substring(0, mTitle.lastIndexOf("."));
 
-            Log.d("MusicPlayer", data.getData().toString());
-            Log.d("MusicPlayer", ms.getState().toString());
-            Log.d("MusicPlayer", getFileName(data.getData()));
-            new mTask().execute(0);
+            new mTask().execute(0); //execute AsyncTask to start playback and continuously update UI
         }
 
 
@@ -379,7 +391,7 @@ public class MainActivity extends AppCompatActivity {
         //Update UI before starting playback
         @Override
         protected void onPreExecute(){
-            Log.d("MusicPlayer", "onPreExecute");
+            Log.d(TAG, "onPreExecute");
 
             //start playback
             ms.play();
@@ -390,7 +402,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected Void doInBackground(Integer... values) {
-            Log.d("MusicPlayer", "Seek bar AsyncTask started");
+            Log.d(TAG, "Seek bar AsyncTask started");
 
             //seek bar listener
             seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -423,11 +435,12 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
 
+                //for debugging
                 Log.d("MPState", ms.getState().toString());
-                Log.d("MPProgress", Integer.toString(ms.getDuration()));
+                Log.d("MPProgress", Integer.toString(ms.getProgress()));
             }
 
-            Log.d("MusicPlayer", "Loop exited");
+            Log.d(TAG, "AsyncTask over");
 
             return null;
         }
@@ -440,7 +453,7 @@ public class MainActivity extends AppCompatActivity {
             //if stopped or music playback is complete
             if ((ms.getState() == MP3Player.MP3PlayerState.STOPPED) || (ms.getProgress()/100 == ms.getDuration()/100)){
 
-                Log.d("MusicPlayer", "Reset UI");
+                Log.d(TAG, "Reset UI");
 
                 //reset progress textview and call stop() function to reset UI
                 progressText.setText("");
